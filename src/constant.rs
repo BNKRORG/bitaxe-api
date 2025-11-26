@@ -1,1 +1,2 @@
-pub(crate) const USER_AGENT_NAME: &str = concat!("kraken-api/", env!("CARGO_PKG_VERSION"));
+pub(crate) const USER_AGENT_NAME: &str =
+    concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
