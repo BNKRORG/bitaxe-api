@@ -5,4 +5,8 @@
 #![warn(clippy::large_futures)]
 #![warn(rustdoc::bare_urls)]
 
+pub mod client;
+mod constant;
+pub mod error;
+pub mod prelude;
 pub mod response;
