@@ -20,6 +20,9 @@ pub struct SystemInfo {
     /// Firmware version
     #[serde(rename = "version")]
     pub version: String,
+    /// AxeOS version
+    #[serde(rename = "axeOSVersion")]
+    pub axe_os_version: String,
     /// Hardware board version
     #[serde(rename = "boardVersion")]
     pub board_version: String,
@@ -45,9 +48,15 @@ pub struct SystemInfo {
     /// Fallback stratum username
     #[serde(rename = "fallbackStratumUser")]
     pub fallback_stratum_user: String,
+    /// Latency to stratum server in ms
+    #[serde(rename = "responseTime")]
+    pub stratum_latency: Option<f64>,
     /// Current hashrate
     #[serde(rename = "hashRate")]
-    pub hash_rate: f64,
+    pub hashrate: f64,
+    /// Expected hashrate
+    #[serde(rename = "expectedHashrate")]
+    pub expected_hashrate: f64,
     /// Best difficulty achieved
     #[serde(rename = "bestDiff")]
     #[serde(deserialize_with = "deserialize_difficulty")]
@@ -68,6 +77,11 @@ pub struct SystemInfo {
     /// Reason(s) shares were rejected
     #[serde(rename = "sharesRejectedReasons")]
     pub shares_rejected_reasons: Vec<ShareRejectedReason>,
+    /// Whether a block was found
+    #[serde(default)]
+    #[serde(rename = "blockFound")]
+    #[serde(deserialize_with = "deserialize_bool_from_int")]
+    pub block_found: bool,
     /// Auto fan speed
     ///
     /// `true` if auto, `false` if manual.
@@ -249,6 +263,7 @@ mod tests {
             SystemInfo {
                 asic_model: String::from("BM1370"),
                 version: String::from("v2.10.1"),
+                axe_os_version: String::from("v2.10.1"),
                 board_version: String::from("601"),
                 stratum_url: String::from("192.168.1.11"),
                 stratum_port: 3333,
@@ -257,7 +272,9 @@ mod tests {
                 fallback_stratum_url: String::from("solo.ckpool.org"),
                 fallback_stratum_port: 3333,
                 fallback_stratum_user: String::from("1PKN98VN2z5gwSGZvGKS2bj8aADZBkyhkZ"),
-                hash_rate: 1184.8093224631666,
+                stratum_latency: Some(22.331),
+                hashrate: 1184.8093224631666,
+                expected_hashrate: 1071.0,
                 best_diff: 2.03e9 as u64,
                 best_session_diff: 138.17e6 as u64,
                 pool_difficulty: 1000,
@@ -273,6 +290,7 @@ mod tests {
                         count: 4
                     }
                 ],
+                block_found: false,
                 auto_fan_speed: true,
                 fan_rpm: 5471,
                 fan_speed: 100.0,

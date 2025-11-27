@@ -45,7 +45,7 @@ impl BitaxeClient {
         Ok(response.json().await?)
     }
 
-    /// Get system info
+    /// Get system information
     #[inline]
     pub async fn system_info(&self) -> Result<SystemInfo, Error> {
         let url: Url = self.root_url.join("/api/system/info")?;
