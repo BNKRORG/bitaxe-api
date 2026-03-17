@@ -60,11 +60,11 @@ pub struct SystemInfo {
     /// Best difficulty achieved
     #[serde(rename = "bestDiff")]
     #[serde(deserialize_with = "deserialize_difficulty")]
-    pub best_diff: u64,
+    pub best_diff: Option<u64>,
     /// Best difficulty achieved in current session
     #[serde(rename = "bestSessionDiff")]
     #[serde(deserialize_with = "deserialize_difficulty")]
-    pub best_session_diff: u64,
+    pub best_session_diff: Option<u64>,
     /// Current pool difficulty
     #[serde(rename = "poolDifficulty")]
     pub pool_difficulty: u64,
@@ -147,27 +147,100 @@ where
     Ok(value != 0)
 }
 
-fn deserialize_difficulty<'de, D>(deserializer: D) -> Result<u64, D::Error>
+struct DifficultyVisitor;
+
+impl<'de> de::Visitor<'de> for DifficultyVisitor {
+    type Value = Option<u64>;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("a number or a string difficulty value")
+    }
+
+    fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E> {
+        if value < 0 {
+            Ok(None)
+        } else {
+            Ok(Some(value as u64))
+        }
+    }
+
+    fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E> {
+        Ok(Some(value))
+    }
+
+    fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E> {
+        if value.is_finite() && value > 0.0 {
+            Ok(Some(value.round() as u64))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        parse_difficulty_string(value)
+    }
+
+    fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        parse_difficulty_string(&value)
+    }
+
+    fn visit_none<E>(self) -> Result<Self::Value, E> {
+        Ok(None)
+    }
+
+    fn visit_unit<E>(self) -> Result<Self::Value, E> {
+        Ok(None)
+    }
+
+    fn visit_seq<A>(self, _seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: de::SeqAccess<'de>,
+    {
+        Ok(None)
+    }
+
+    fn visit_map<A>(self, _map: A) -> Result<Self::Value, A::Error>
+    where
+        A: de::MapAccess<'de>,
+    {
+        Ok(None)
+    }
+}
+
+fn deserialize_difficulty<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let s: String = String::deserialize(deserializer)?;
-    let parts: Vec<&str> = s.split_whitespace().collect();
+    deserializer.deserialize_any(DifficultyVisitor)
+}
 
-    if parts.is_empty() {
-        return Err(de::Error::custom(format!(
-            "Invalid difficulty format: {}",
-            s
-        )));
+fn parse_difficulty_string<E>(value: &str) -> Result<Option<u64>, E>
+where
+    E: de::Error,
+{
+    let trimmed: &str = value.trim();
+    if trimmed.is_empty() {
+        return Ok(None);
     }
 
-    let number: f64 = parts[0]
-        .parse()
-        .map_err(|_| de::Error::custom(format!("Invalid number: {}", parts[0])))?;
+    let parts: Vec<&str> = trimmed.split_whitespace().collect();
+    if parts.is_empty() {
+        return Ok(None);
+    }
 
-    // If there's no unit, return the number as-is
+    let number: f64 = match parts[0].parse() {
+        Ok(n) => n,
+        Err(_) => return Ok(None),
+    };
+
     if parts.len() == 1 {
-        return Ok(number as u64);
+        return Ok(Some(number.round() as u64));
     }
 
     let multiplier: f64 = match parts[1] {
@@ -177,10 +250,10 @@ where
         "T" => 1_000_000_000_000.0,
         "P" => 1_000_000_000_000_000.0,
         "E" => 1_000_000_000_000_000_000.0,
-        unit => return Err(de::Error::custom(format!("Unknown unit: {}", unit))),
+        _ => return Ok(None),
     };
 
-    Ok((number * multiplier).round() as u64)
+    Ok(Some((number * multiplier).round() as u64))
 }
 
 #[cfg(test)]
@@ -188,7 +261,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_deserialize_system_info() {
+    fn test_deserialize_system_info_old_format_difficulty() {
         let json: &str = r#"{
 	"power":	22.060667037963867,
 	"voltage":	5046.875,
@@ -275,8 +348,8 @@ mod tests {
                 stratum_latency: Some(22.331),
                 hashrate: 1184.8093224631666,
                 expected_hashrate: 1071.0,
-                best_diff: 2.03e9 as u64,
-                best_session_diff: 138.17e6 as u64,
+                best_diff: Some(2.03e9 as u64),
+                best_session_diff: Some(138.17e6 as u64),
                 pool_difficulty: 1000,
                 shares_accepted: 20205,
                 shares_rejected: 24,
@@ -309,5 +382,57 @@ mod tests {
                 uptime_seconds: 258691,
             }
         )
+    }
+
+    #[test]
+    fn test_deserialize_system_info_numeric_difficulty() {
+        let json: &str = r#"{
+	"temp":	60.125,
+	"hashRate":	1072.2407227,
+	"expectedHashrate":	1071,
+	"bestDiff":	49224525,
+	"bestSessionDiff":	2038368,
+	"poolDifficulty":	1000,
+	"isUsingFallbackStratum":	1,
+	"isPSRAMAvailable":	1,
+	"frequency":	525,
+	"ssid":	"HomeNET",
+	"macAddr":	"10:F5:12:33:BB:F0",
+	"hostname":	"bitaxe",
+	"wifiStatus":	"Connected!",
+	"wifiRSSI":	-44,
+	"apEnabled":	0,
+	"sharesAccepted":	4768,
+	"sharesRejected":	13,
+	"sharesRejectedReasons":	[{
+			"message":	"Stale",
+			"count":	13
+	}],
+	"uptimeSeconds":	18574,
+	"ASICModel":	"BM1370",
+	"stratumURL":	"public-pool.io",
+	"stratumPort":	21496,
+	"stratumUser":	"bc1qnp980s5fpp8l94p5cvttmtdqy8rvrq74qly2yrfmzkdsntqzlc5qkc4rkq.bitaxe",
+	"fallbackStratumURL":	"solo.ckpool.org",
+	"fallbackStratumPort":	3333,
+	"fallbackStratumUser":	"bc1qnp980s5fpp8l94p5cvttmtdqy8rvrq74qly2yrfmzkdsntqzlc5qkc4rkq.bitaxe",
+	"responseTime":	188.482,
+	"version":	"v2.12.2",
+	"axeOSVersion":	"v2.12.2",
+	"boardVersion":	"601",
+	"overheat_mode":	0,
+	"overclockEnabled":	0,
+	"autofanspeed":	1,
+	"fanspeed":	48.4200668,
+	"fanrpm":	3915,
+	"temptarget":	60
+}"#;
+
+        let info: SystemInfo = serde_json::from_str(json).unwrap();
+        assert_eq!(info.best_diff, Some(49_224_525));
+        assert_eq!(info.best_session_diff, Some(2_038_368));
+        assert!(info.is_using_fallback_stratum);
+        assert!(info.is_psram_available);
+        assert_eq!(info.stratum_latency, Some(188.482));
     }
 }
