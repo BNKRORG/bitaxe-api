@@ -1,5 +1,7 @@
 //! Bitaxe API response types
 
+use std::net::{Ipv4Addr, Ipv6Addr};
+
 use serde::{Deserialize, Deserializer, de};
 
 /// Share rejected reason
@@ -100,6 +102,12 @@ pub struct SystemInfo {
     /// Device hostname
     #[serde(rename = "hostname")]
     pub hostname: String,
+    /// Device IPv4 address
+    #[serde(rename = "ipv4")]
+    pub ipv4: Option<Ipv4Addr>,
+    /// Device IPv6 address
+    #[serde(rename = "ipv6")]
+    pub ipv6: Option<Ipv6Addr>,
     /// WiFi network SSID
     #[serde(rename = "ssid")]
     pub ssid: String,
@@ -369,6 +377,8 @@ mod tests {
                 fan_speed: 100.0,
                 frequency: 525,
                 hostname: String::from("BM1370"),
+                ipv4: None,
+                ipv6: None,
                 ssid: String::from("My Home Wi-Fi"),
                 wifi_rssi: -35,
                 wifi_status: String::from("Connected!"),
