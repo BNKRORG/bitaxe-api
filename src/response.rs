@@ -2,6 +2,7 @@
 
 use std::net::{Ipv4Addr, Ipv6Addr};
 
+use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, de};
 
 /// Share rejected reason
@@ -53,12 +54,14 @@ pub struct SystemInfo {
     /// Latency to stratum server in ms
     #[serde(rename = "responseTime")]
     pub stratum_latency: Option<f64>,
-    /// Current hashrate
+    /// Current hashrate in H/s
     #[serde(rename = "hashRate")]
-    pub hashrate: f64,
-    /// Expected hashrate
+    #[serde(deserialize_with = "deserialize_hashrate")]
+    pub hashrate: u64,
+    /// Expected hashrate in H/s
     #[serde(rename = "expectedHashrate")]
-    pub expected_hashrate: f64,
+    #[serde(deserialize_with = "deserialize_hashrate")]
+    pub expected_hashrate: u64,
     /// Best difficulty achieved
     #[serde(rename = "bestDiff")]
     #[serde(deserialize_with = "deserialize_difficulty")]
@@ -153,6 +156,79 @@ where
 {
     let value: u8 = u8::deserialize(deserializer)?;
     Ok(value != 0)
+}
+
+struct HashrateVisitor;
+
+impl Visitor<'_> for HashrateVisitor {
+    type Value = u64;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("a hashrate as integer, float, or numeric string")
+    }
+
+    fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        if value < 0 { Ok(0) } else { Ok(value as u64) }
+    }
+
+    fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E> {
+        Ok(value)
+    }
+
+    fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        if !value.is_finite() || value < 0.0 {
+            return Ok(0);
+        }
+
+        if value > u64::MAX as f64 {
+            return Err(E::custom("hashrate is too large"));
+        }
+
+        Ok(value as u64)
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        parse_hashrate_string(value)
+    }
+
+    fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        parse_hashrate_string(&value)
+    }
+}
+
+fn deserialize_hashrate<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    deserializer.deserialize_any(HashrateVisitor)
+}
+
+fn parse_hashrate_string<E>(value: &str) -> Result<u64, E>
+where
+    E: de::Error,
+{
+    let trimmed: &str = value.trim();
+    if trimmed.is_empty() {
+        return Err(E::custom("hashrate cannot be empty"));
+    }
+
+    let parsed: f64 = trimmed
+        .parse()
+        .map_err(|_| E::custom("hashrate string is not numeric"))?;
+
+    HashrateVisitor.visit_f64(parsed)
 }
 
 struct DifficultyVisitor;
@@ -354,8 +430,8 @@ mod tests {
                 fallback_stratum_port: 3333,
                 fallback_stratum_user: String::from("1PKN98VN2z5gwSGZvGKS2bj8aADZBkyhkZ"),
                 stratum_latency: Some(22.331),
-                hashrate: 1184.8093224631666,
-                expected_hashrate: 1071.0,
+                hashrate: 1184,
+                expected_hashrate: 1071,
                 best_diff: Some(2.03e9 as u64),
                 best_session_diff: Some(138.17e6 as u64),
                 pool_difficulty: 1000,
@@ -439,6 +515,8 @@ mod tests {
 }"#;
 
         let info: SystemInfo = serde_json::from_str(json).unwrap();
+        assert_eq!(info.hashrate, 1072);
+        assert_eq!(info.expected_hashrate, 1071);
         assert_eq!(info.best_diff, Some(49_224_525));
         assert_eq!(info.best_session_diff, Some(2_038_368));
         assert!(info.is_using_fallback_stratum);
