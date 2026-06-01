@@ -2,6 +2,7 @@
 
 use std::net::{Ipv4Addr, Ipv6Addr};
 
+use mining_primitives::hashrate::Hashrate;
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, de};
 
@@ -57,11 +58,11 @@ pub struct SystemInfo {
     /// Current hashrate in H/s
     #[serde(rename = "hashRate")]
     #[serde(deserialize_with = "deserialize_hashrate")]
-    pub hashrate_hs: u64,
+    pub hashrate: Hashrate,
     /// Expected hashrate in H/s
     #[serde(rename = "expectedHashrate")]
     #[serde(deserialize_with = "deserialize_hashrate")]
-    pub expected_hashrate_hs: u64,
+    pub expected_hashrate: Hashrate,
     /// Best difficulty achieved
     #[serde(rename = "bestDiff")]
     #[serde(deserialize_with = "deserialize_difficulty")]
@@ -161,7 +162,7 @@ where
 struct HashrateVisitor;
 
 impl Visitor<'_> for HashrateVisitor {
-    type Value = u64;
+    type Value = Hashrate;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         formatter.write_str("a hashrate as integer, float, or numeric string")
@@ -172,7 +173,7 @@ impl Visitor<'_> for HashrateVisitor {
         E: de::Error,
     {
         if value < 0 {
-            return Ok(0);
+            return Ok(Hashrate::from_hs(0));
         }
 
         convert_ghs_to_hs(value as f64)
@@ -207,14 +208,14 @@ impl Visitor<'_> for HashrateVisitor {
     }
 }
 
-fn deserialize_hashrate<'de, D>(deserializer: D) -> Result<u64, D::Error>
+fn deserialize_hashrate<'de, D>(deserializer: D) -> Result<Hashrate, D::Error>
 where
     D: Deserializer<'de>,
 {
     deserializer.deserialize_any(HashrateVisitor)
 }
 
-fn parse_hashrate_string<E>(value: &str) -> Result<u64, E>
+fn parse_hashrate_string<E>(value: &str) -> Result<Hashrate, E>
 where
     E: de::Error,
 {
@@ -230,12 +231,12 @@ where
     convert_ghs_to_hs(parsed)
 }
 
-fn convert_ghs_to_hs<E>(value: f64) -> Result<u64, E>
+fn convert_ghs_to_hs<E>(value: f64) -> Result<Hashrate, E>
 where
     E: de::Error,
 {
     if !value.is_finite() || value < 0.0 {
-        return Ok(0);
+        return Ok(Hashrate::from_hs(0));
     }
 
     let hashrate_hs: f64 = value * 1_000_000_000.0;
@@ -244,7 +245,7 @@ where
         return Err(E::custom("hashrate is too large"));
     }
 
-    Ok(hashrate_hs as u64)
+    Ok(Hashrate::from_hs(hashrate_hs as u64))
 }
 
 struct DifficultyVisitor;
@@ -446,8 +447,8 @@ mod tests {
                 fallback_stratum_port: 3333,
                 fallback_stratum_user: String::from("1PKN98VN2z5gwSGZvGKS2bj8aADZBkyhkZ"),
                 stratum_latency: Some(22.331),
-                hashrate_hs: 1_184_809_322_463,
-                expected_hashrate_hs: 1_071_000_000_000,
+                hashrate: Hashrate::from_hs(1_184_809_322_463),
+                expected_hashrate: Hashrate::from_hs(1_071_000_000_000),
                 best_diff: Some(2.03e9 as u64),
                 best_session_diff: Some(138.17e6 as u64),
                 pool_difficulty: 1000,
@@ -531,8 +532,8 @@ mod tests {
 }"#;
 
         let info: SystemInfo = serde_json::from_str(json).unwrap();
-        assert_eq!(info.hashrate_hs, 1_072_240_722_700);
-        assert_eq!(info.expected_hashrate_hs, 1_071_000_000_000);
+        assert_eq!(info.hashrate.to_hs(), 1_072_240_722_700);
+        assert_eq!(info.expected_hashrate.to_hs(), 1_071_000_000_000);
         assert_eq!(info.best_diff, Some(49_224_525));
         assert_eq!(info.best_session_diff, Some(2_038_368));
         assert!(info.is_using_fallback_stratum);

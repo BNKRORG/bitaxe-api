@@ -18,6 +18,7 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 name = "bitaxe-api"
 version = "0.1.0"
 dependencies = [
+ "mining-primitives",
  "reqwest",
  "serde",
  "serde_json",
@@ -470,6 +471,12 @@ name = "memchr"
 version = "2.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f52b00d39961fc5b2736ea853c9cc86238e165017a493d1d5c8eac6bdc4cc273"
+
+[[package]]
+name = "mining-primitives"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a537011499cb400b4171decc68b38a7117ad6d7f50e7bd493031e48f2e00d760"
 
 [[package]]
 name = "mio"
