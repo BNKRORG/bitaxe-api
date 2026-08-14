@@ -4,15 +4,15 @@ fmt:
     cargo +nightly fmt -- --config format_code_in_doc_comments=true
 
 check:
-    cargo check
-    cargo check --all-features
+    cargo check --all
+    cargo check --all --all-features
 
 clippy:
-    cargo clippy
-    cargo clippy --all-features
+    cargo clippy --all
+    cargo clippy --all --all-features
 
 test:
-    cargo test
-    cargo test --all-features
+    cargo test --all
+    cargo test --all --all-features
 
 precommit: fmt check clippy test
