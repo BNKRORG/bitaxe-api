@@ -2,7 +2,7 @@
 
 ## Important notes
 
-These libraries are made open-source to allow inspection and verification but is not intended to be used outside the organization projects.
+These libraries are made open-source to allow inspection and verification but are not intended to be used outside the organization projects.
 
 ## License
 
