@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "antminer",
     "bitaxe",
 ]
 resolver = "2"
@@ -8,6 +9,7 @@ resolver = "2"
 edition = "2024"
 
 [workspace.dependencies]
+digest_auth = "0.3"
 mining-primitives = "0.1"
 reqwest = { version = "0.12", default-features = false }
 serde = "1.0"
