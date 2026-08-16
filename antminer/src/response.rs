@@ -4,6 +4,7 @@ use std::net::IpAddr;
 
 use mining_primitives::hashrate::Hashrate;
 use serde::Deserialize;
+use url::Url;
 
 use crate::error::Error;
 
@@ -446,7 +447,7 @@ pub struct Pool {
     /// Pool index.
     pub index: u64,
     /// Pool URL.
-    pub url: String,
+    pub url: Url,
     /// Stratum username or worker.
     pub user: String,
     /// Connection state.
